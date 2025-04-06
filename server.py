@@ -41,7 +41,7 @@ async def get_spotify_headers():
     access_token = get_spotify_access_token()
     return {"Authorization": f"Bearer {access_token}"}
 
-@mcp.resource("config://phone_device_id", name="laptop_device_id", mime_type="text/plain")
+@mcp.resource("config://phone_device_id", name="phone_device_id", mime_type="text/plain")
 async def get_phone_device_id() -> str:
     "Spotify device id for my phone"
     return phone_device_id
