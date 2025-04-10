@@ -1,5 +1,4 @@
 from mcp.server.fastmcp import FastMCP
-from mcp.types import Resource
 from mcp.server.stdio import stdio_server
 import requests
 from dotenv import load_dotenv
@@ -68,7 +67,7 @@ async def read_device_id(device: str) -> str:
 
 @mcp.tool()
 async def pause_spotify_playback():
-    "Pauses the playback for spotify on the given device - requires headers from get_spotify_headers()"
+    "Pauses the playback for spotify for the active device - requires headers from get_spotify_headers()"
     spotify_pause_url= "https://api.spotify.com/v1/me/player/pause"
     headers = await get_spotify_headers()
 
@@ -79,7 +78,7 @@ async def pause_spotify_playback():
 
 @mcp.tool()
 async def resume_spotify_playback():
-    "Resumes the playback for spotify on the given device - requires headers from get_spotify_headers()"
+    "Resumes the playback for spotify for the active device - requires headers from get_spotify_headers()"
     spotify_resume_url= "https://api.spotify.com/v1/me/player/play"
     headers = await get_spotify_headers()
 
@@ -98,8 +97,9 @@ async def transfer_spotify_playback(device_id: str):
     headers = await get_spotify_headers()
 
     response = requests.put(url=spotify_resume_url, headers=headers, data=json.dumps({"device_ids": [device_id]}), verify=cert_path)
-    if response.status_code != 200:
+    if response.status_code != 204 and response.status_code != 200:
         return json.loads(response.content)
+    return True
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')

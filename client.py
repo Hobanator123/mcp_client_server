@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
+from mcp.types import CallToolResult
 from mcp.client.stdio import stdio_client
 
 from anthropic import Anthropic
@@ -44,30 +45,33 @@ class MCPClient:
         resources = response.resources
         print("\nConnected to server with resources:", [resource.name for resource in resources])
 
-    async def process_content(self, response_content: list, available_tools: list, messages: list=None, final_text: list=None, assistant_message_content: list=None) -> Tuple[list, list]:
+    async def process_content(self, response_content: list, available_tools: list, messages: list=None, final_text: list=None) -> Tuple[list, list]:
         if not messages:
             messages = []
         if not final_text:
             final_text = []
-        if not assistant_message_content:
-            assistant_message_content = []
+        # if not assistant_message_content:
+        #     assistant_message_content = []
+        assistant_message_content = []
 
         for content in response_content:
-            print(f"\n\n\n{content}\n\n\n")
-            print(f"######\n{content.type}\n######")
+            # print(f"######\n{content.type}\n######")
+            # print("\t", content)
             if content.type == "text":
+                # print("content is text, appending to final_text amd assistant_message_content")
                 final_text.append(content.text)
                 assistant_message_content.append(content)
             elif content.type == "tool_use":
                 tool_name = content.name
                 tool_args = content.input
+                # print(f"content is tool_use\ntool name: {tool_name}\ntool args: {tool_args}")
 
                 # Execute tool call
                 result = await self.session.call_tool(tool_name, tool_args)
                 final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
 
                 assistant_message_content.append(content)
-                assistant_message_content.append(result)
+                # assistant_message_content.append(result)
                 messages.append({
                     "role": "assistant",
                     "content": assistant_message_content
@@ -84,6 +88,8 @@ class MCPClient:
                 })
 
                 # Get next response from Claude
+                # print("Getting next response from claude passing these messages:")
+                # print(messages)
                 response = self.anthropic.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=1000,
@@ -91,9 +97,10 @@ class MCPClient:
                     tools=available_tools
                 )
 
-                messages, final_text, assistant_message_content = await self.process_content(response.content, available_tools, messages, final_text, assistant_message_content)
+                # print(response.content)
+                messages, final_text = await self.process_content(response.content, available_tools, messages, final_text)
 
-        return messages, final_text, assistant_message_content
+        return messages, final_text
 
     async def process_query(self, query: str) -> str:
         messages = [
@@ -119,47 +126,7 @@ class MCPClient:
 
         # Process response and handle tool calls
         final_text = []
-
-        assistant_message_content = []
-        # messages, final_text, assistant_message_content = await self.process_content(response.content, available_tools, messages, final_text, assistant_message_content)
-        for content in response.content:
-            print(f"######\n{content.type}\n######")
-            if content.type == "text":
-                final_text.append(content.text)
-                assistant_message_content.append(content)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
-
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
-
-                assistant_message_content.append(content)
-                messages.append({
-                    "role": "assistant",
-                    "content": assistant_message_content
-                })
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": content.id,
-                            "content": result.content
-                        }
-                    ]
-                })
-
-                # Get next response from Claude
-                response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=1000,
-                    messages=messages,
-                    tools=available_tools
-                )
-
-                final_text.append(response.content[0].text)
+        messages, final_text = await self.process_content(response.content, available_tools, messages, final_text)
 
         return "\n".join(final_text)
     
